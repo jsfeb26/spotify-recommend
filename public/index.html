@@ -5,15 +5,15 @@
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 
         <!-- CSS -->
-        <link rel="stylesheet" href="http://yui.yahooapis.com/pure/0.6.0/pure-min.css">
+        <link rel="stylesheet" href="./css/pure-min.css">
         <!--[if lte IE 8]>
         <link rel="stylesheet" href="http://yui.yahooapis.com/pure/0.6.0/grids-responsive-old-ie-min.css">
         <![endif]-->
         <!--[if gt IE 8]><!-->
-        <link rel="stylesheet" href="http://yui.yahooapis.com/pure/0.6.0/grids-responsive-min.css">
+        <link rel="stylesheet" href="./css/grids-responsive-min.css">
         <!--<![endif]-->
 
-        <link rel="stylesheet" href="http://netdna.bootstrapcdn.com/font-awesome/4.0.3/css/font-awesome.min.css">
+        <link rel="stylesheet" href="./css/font-awesome.min.css">
         <style>
 body {
     background-color: #F8F8F8;
@@ -94,8 +94,8 @@ li {
 
 
         <!-- JS -->
-        <script src="http://code.jquery.com/jquery-2.1.3.min.js"></script>
-        <script src="//cdnjs.cloudflare.com/ajax/libs/handlebars.js/1.3.0/handlebars.js"></script>
+        <script src="./scripts/jquery-2.1.3.min.js"></script>
+        <script src="./scripts/handlebars.js"></script>
 
         <script>
 var Spotify = function() {
@@ -126,8 +126,6 @@ Spotify.prototype.onSearchDone = function(artist) {
     this.result.empty().append(result);
     this.result.toggleClass('transparent');
 };
-
-
 
 $(document).ready(function() {
     var app = new Spotify();
