@@ -24,7 +24,17 @@ app.get('/search/:name', function(req, res) {
 
     searchReq.on('end', function(item) {
         var artist = item.artists.items[0];
-        res.json(artist);
+
+        var relatedArtistReq = getFromApi('artists/' + artist.id + '/related-artists');
+
+        relatedArtistReq.on('end', function(item) {
+        	artist.related = item.artists;
+        	res.json(artist);
+        });
+
+        relatedArtistReq.on('error', function() {
+			res.sendStatus(404);
+        });
     });
 
     searchReq.on('error', function() {
