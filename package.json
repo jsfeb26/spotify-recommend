@@ -1,0 +1,15 @@
+{
+  "name": "spotify-recommend",
+  "version": "0.0.1",
+  "description": "Spotify Recommendation App",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Jason Stinson",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.13.2",
+    "unirest": "^0.4.2"
+  }
+}
