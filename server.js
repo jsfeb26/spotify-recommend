@@ -1,15 +1,25 @@
-var unirest = require('unirest');
 var express = require('express');
 var events = require('events');
+var Promise = require("bluebird");
+var request = require('request-promise');
+var $ = require('cheerio'); // Basically jQuery for node.js 
+
+function autoParse(body, response) {
+    // FIXME: The content type string could contain additional values like the charset. 
+    if (response.headers['content-type'] === 'application/json' || 
+        response.headers['content-type'] === 'application/json; charset=utf-8') {
+        return JSON.parse(body);
+    } else if (response.headers['content-type'] === 'text/html') {
+        return $.load(body);
+    } else {
+        return body;
+    }
+}
+
+var rpap = request.defaults({ transform: autoParse }); // add autoParse function as defualt
 
 var getFromApi = function(endpoint, args) {
-    var emitter = new events.EventEmitter();
-    unirest.get('https://api.spotify.com/v1/' + endpoint)
-           .qs(args)
-           .end(function(response) {
-               emitter.emit('end', response.body);
-            });
-    return emitter;
+    return rpap('https://api.spotify.com/v1/' + endpoint).qs(args);
 };
 
 var app = express();
@@ -22,7 +32,7 @@ app.get('/search/:name', function(req, res) {
     		country: 'US' // must pass country code
     	});
 
-    	getTopTracks.on('end', function(item) {
+    	getTopTracks.then(function(item) {
     		// in this API error is sent in body of response
     		// need to catch error here not in error event
     		if (item.error) {
@@ -31,11 +41,9 @@ app.get('/search/:name', function(req, res) {
     		else {
     			callback(null, index, item.tracks);
     		}
-    	});
-
-    	getTopTracks.on('error', function(err) {
-    		callback(err);
-    	});
+    	}).catch(function(error) {
+            callback(error);
+        });
     };
 
     var searchReq = getFromApi('search', {
@@ -44,64 +52,57 @@ app.get('/search/:name', function(req, res) {
         type: 'artist'
     });
 
-    searchReq.on('end', function(item) {
-        var artist = item.artists.items[0];
+    var artist; // declare out here so innner thens can access
+    searchReq.then(function(item) {
+        artist = item.artists.items[0]; // artist returned from search
+    	return getFromApi('artists/' + artist.id + '/related-artists');
 
-    	var relatedArtistReq = getFromApi('artists/' + artist.id + '/related-artists');
+    }).then(function(item) {
+        var completed = 0;
+        var artistsCount = item.artists.length;
+        var resError = null;
+        var responseSent = false;
 
-        relatedArtistReq.on('end', function(item) {
-        	var completed = 0;
-        	var artistsCount = item.artists.length;
-        	var resError = null;
-        	var responseSent = false;
+        var checkComplete = function() {
+            // need to check for response here
+            // because of asynchronous event it will keep calling this even
+            // if the response is already sent and you will get error
+            // about changing response after it has already been sent
+            if (!responseSent) {
+                if (resError) {
+                    if (resError.status) {
+                        responseSent = true;
+                        res.sendStatus(resError.status);
+                    }
+                    else {
+                        responseSent = true;
+                        res.sendStatus(404);
+                    }
+                }
 
-        	var checkComplete = function() {
-        		// need to check for response here
-        		// because of asynchronous event it will keep calling this even
-        		// if the response is already sent and you will get error
-        		// about changing response after it has already been sent
-        		if (!responseSent) {
-	        		if (resError) {
-	        			if (resError.status) {
-	        				responseSent = true;
-	        				res.sendStatus(resError.status);
-	        			}
-	        			else {
-	        				responseSent = true;
-	        				res.sendStatus(404);
-	        			}
-	        		}
+                if (completed === artistsCount) {
+                    responseSent = true;
+                    res.json(artist);
+                }
+            }
+        };
 
-	        		if (completed === artistsCount) {
-	        			responseSent = true;
-	        			res.json(artist);
-	        		}
-        		}
-        	};
+        artist.related = item.artists;
 
-        	artist.related = item.artists;
+        for (var i = 0; i < artist.related.length; i += 1) {
+            searchTopTracksReq(artist.related[i], i, function(err, index, tracks) {
+                if (err) {
+                    resError = err;
+                }
+                else {
+                    artist.related[index].tracks = tracks;
+                }
 
-        	for (var i = 0; i < artist.related.length; i += 1) {
-        		searchTopTracksReq(artist.related[i], i, function(err, index, tracks) {
-        			if (err) {
-        				resError = err;
-        			}
-        			else {
-        				artist.related[index].tracks = tracks;
-        			}
-
-        			completed += 1;
-        			checkComplete();
-        		});
-        	}
-        });
-
-        relatedArtistReq.on('error', function() {
-			res.sendStatus(404);
-        });
-    });
-
-    searchReq.on('error', function() {
+                completed += 1;
+                checkComplete();
+            });
+        }
+    }).catch(function(error) {
         res.sendStatus(404);
     });
 });
